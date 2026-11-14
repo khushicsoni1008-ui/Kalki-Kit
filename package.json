@@ -1,0 +1,27 @@
+{
+  "name": "kalki-kit",
+  "version": "1.0.0",
+  "description": "KALKI-KIT: check news claims against live news, fact-checkers and Wikipedia, judged by Gemini",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "fact-checking",
+    "news",
+    "gemini",
+    "verification"
+  ],
+  "author": "KALKI-KIT Team",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

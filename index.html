@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="color-scheme" content="dark light">
+    <meta name="theme-color" content="#090d18">
+    <meta name="description" content="Check any news claim against live news, fact-checkers and Wikipedia.">
+    <title>Kalki-Kit | News Fact Check</title>
+
+    <!-- Apply the saved theme before first paint so light-theme users never see a dark flash -->
+    <script>
+        try {
+            var t = localStorage.getItem('kalki_theme');
+            if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-bs-theme', t);
+        } catch (e) {}
+    </script>
+
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="alternate icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="assets/logo.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="css/styles.css?v=6.0">
+
+    <!-- Login protection (Firebase Auth + guest session) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="js/auth.js?v=3.1"></script>
+</head>
+<body>
+    <a class="visually-hidden-focusable skip-link" href="#main-content">Skip to main content</a>
+
+    <div class="bg-orb orb-1" aria-hidden="true"></div>
+    <div class="bg-orb orb-2" aria-hidden="true"></div>
+
+    <!-- Mobile drawer backdrop -->
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <nav class="sidebar glass-panel" id="sidebar" aria-label="Main navigation">
+            <div class="sidebar-header d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <img src="assets/logo.jpg" class="custom-logo me-2" alt="" onerror="this.style.display='none'">
+                    <h2 class="logo-text">KALKI<span class="text-primary">-KIT</span></h2>
+                </div>
+                <button class="btn btn-icon btn-sm d-lg-none" id="sidebar-close-btn" title="Close menu" aria-label="Close menu">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <ul class="nav-links list-unstyled">
+                <li class="nav-item active" data-target="verify">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i> <span>Fact Check</span>
+                </li>
+                <li class="nav-item" data-target="image">
+                    <i class="fa-regular fa-image"></i> <span>Image Check</span>
+                </li>
+                <li class="nav-item" data-target="latest">
+                    <i class="fa-solid fa-bullhorn"></i> <span>Latest Fact-Checks</span>
+                </li>
+                <li class="nav-item" data-target="history">
+                    <i class="fa-solid fa-clock-rotate-left"></i> <span>My Checks</span>
+                </li>
+            </ul>
+
+            <div class="px-3 pb-2">
+                <button class="btn btn-outline-secondary btn-sm w-100" data-bs-toggle="modal" data-bs-target="#howModal">
+                    <i class="fa-regular fa-circle-question"></i> How it works
+                </button>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="user-profile d-flex justify-content-between align-items-center w-100">
+                    <div class="d-flex align-items-center gap-2 min-w-0">
+                        <div class="avatar d-flex justify-content-center align-items-center text-primary" style="width: 38px; height: 38px; border-radius: 50%;">
+                            <i class="fa-solid fa-user fs-6"></i>
+                        </div>
+                        <div class="user-info min-w-0">
+                            <h6 class="mb-0 text-truncate" id="nav-user-email" style="max-width: 120px;">Guest</h6>
+                            <span class="small text-muted">Signed in</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-sm btn-outline-danger btn-icon" id="btn-logout" title="Log out" aria-label="Log out">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main -->
+        <div class="main-wrapper">
+            <header class="topbar glass-panel">
+                <div class="d-flex align-items-center">
+                    <button class="btn btn-icon me-2 d-lg-none" id="mobile-menu-btn" title="Open menu" aria-label="Open menu">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <div class="d-flex d-lg-none align-items-center gap-2">
+                        <span class="fw-bold fs-6">KALKI<span class="text-primary">-KIT</span></span>
+                    </div>
+                    <div class="d-none d-lg-block">
+                        <div class="fw-bold topbar-title" id="topbar-title">Fact Check</div>
+                        <div class="small text-muted">Verify news against live, trusted sources</div>
+                    </div>
+                </div>
+
+                <div class="topbar-actions d-flex align-items-center gap-2">
+                    <button class="btn btn-icon" id="btn-help" data-bs-toggle="modal" data-bs-target="#howModal" title="How it works" aria-label="How it works">
+                        <i class="fa-regular fa-circle-question"></i>
+                    </button>
+                    <button class="btn btn-icon" id="btn-theme-toggle" title="Switch theme" aria-label="Switch theme">
+                        <i class="fa-solid fa-sun"></i>
+                    </button>
+                </div>
+            </header>
+
+            <main class="content-area" id="main-content" tabindex="-1">
+                <!-- Pages are rendered here by app.js -->
+            </main>
+
+            <!-- Mobile bottom navigation -->
+            <nav class="mobile-bottom-nav d-lg-none glass-panel" id="mobile-bottom-nav" aria-label="Quick navigation">
+                <button class="bottom-nav-item active" data-target="verify">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i>
+                    <span>Check</span>
+                </button>
+                <button class="bottom-nav-item" data-target="image">
+                    <i class="fa-regular fa-image"></i>
+                    <span>Image</span>
+                </button>
+                <button class="bottom-nav-item" data-target="latest">
+                    <i class="fa-solid fa-bullhorn"></i>
+                    <span>Latest</span>
+                </button>
+                <button class="bottom-nav-item" data-target="history">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>My Checks</span>
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Toasts -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1090;" id="kalki-toast-container" aria-live="polite"></div>
+
+    <!-- How it works -->
+    <div class="modal fade" id="howModal" tabindex="-1" aria-labelledby="howModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content glass-panel border-0 text-bg-dark">
+                <div class="modal-header border-bottom border-secondary">
+                    <h5 class="modal-title fw-bold" id="howModalTitle"><i class="fa-regular fa-circle-question text-primary me-2"></i>How Kalki-Kit works</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <ol class="fc-steps list-unstyled mb-4">
+                        <li><span class="fc-step-num">1</span><div><strong>You paste a claim.</strong><p>A headline, a forwarded message or a statement. Check one claim at a time for the best result.</p></div></li>
+                        <li><span class="fc-step-num">2</span><div><strong>Smart searching.</strong><p>An AI model works out what to look up: key names, places and numbers, with spelling corrected.</p></div></li>
+                        <li><span class="fc-step-num">3</span><div><strong>Evidence is gathered.</strong><p>Live news headlines, published fact-checks (Alt News, BOOM, Factly, Snopes and others) and Wikipedia are searched at the same time.</p></div></li>
+                        <li><span class="fc-step-num">4</span><div><strong>The AI judges only that evidence.</strong><p>It is told not to rely on memory. A claim is only marked true or false if at least one source found directly says so. Otherwise the result is <em>Can't verify</em>.</p></div></li>
+                    </ol>
+                    <div class="fc-howto mb-4">
+                        <div><i class="fa-solid fa-link"></i><div><strong>News link</strong><p>Paste an article address. We read it, find the main claim it makes and check that claim. We also flag satire and sensational wording.</p></div></div>
+                        <div><i class="fa-regular fa-image"></i><div><strong>Image check</strong><p>Upload or paste a photo or screenshot. We look for visible signs of AI generation or editing, read any text in it, check any claim that comes with it, and show you how to find where it first appeared.</p></div></div>
+                        <div><i class="fa-solid fa-bullhorn"></i><div><strong>Latest Fact-Checks</strong><p>See what trusted fact-checkers are debunking right now.</p></div></div>
+                        <div><i class="fa-solid fa-microphone"></i><div><strong>Speak a claim</strong><p>In Chrome and Edge you can say a claim in English, Hindi or Marathi instead of typing it.</p></div></div>
+                    </div>
+                    <h6 class="fw-bold mb-2">Before you share anything</h6>
+                    <ul class="fc-tips mb-4">
+                        <li><strong>Pause</strong> if it makes you angry or scared. That is how false posts spread.</li>
+                        <li><strong>Check the source:</strong> who published it, and can you find the same story on a trusted site?</li>
+                        <li><strong>Check the date:</strong> old photos and stories are often shared as if they were new.</li>
+                        <li><strong>Look at the whole story</strong>, not just the headline or the picture.</li>
+                    </ul>
+                    <div class="fc-note">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div>
+                            <strong>Good to know</strong>
+                            <ul class="mb-0 ps-3">
+                                <li>Results are AI-assisted. For important decisions, open the linked sources and read them yourself.</li>
+                                <li>Very recent events may not be reported yet, which gives a <em>Can't verify</em> result rather than a guess.</li>
+                                <li>Checks are saved only in this browser (My Checks). Images you upload are sent to Google's AI to be analysed and are not stored on our server.</li>
+                                <li>For images, "no signs found" never proves a picture is real, and "AI-generated" never proves the story is false.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-secondary">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Got it</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share image -->
+    <div class="modal fade" id="posterModal" tabindex="-1" aria-labelledby="posterModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content glass-panel border-0 text-bg-dark">
+                <div class="modal-header border-bottom border-secondary">
+                    <h5 class="modal-title fw-bold" id="posterModalTitle"><i class="fa-solid fa-image text-primary me-2"></i>Share this result</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center p-4">
+                    <canvas id="posterCanvas" class="img-fluid rounded border border-secondary shadow-lg" style="max-height: 62vh;" role="img" aria-label="Fact-check result image"></canvas>
+                </div>
+                <div class="modal-footer border-top border-secondary">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <a id="btn-download-poster" download="kalki-kit-fact-check.png" class="btn btn-primary">
+                        <i class="fa-solid fa-download"></i> Download image
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script src="js/util.js?v=2.0"></script>
+    <script src="js/data.js?v=3.0"></script>
+    <script src="js/poster.js?v=2.1"></script>
+    <script src="js/imagemeta.js?v=1.0"></script>
+    <script src="js/verification.js?v=4.0"></script>
+    <script src="js/image.js?v=1.0"></script>
+    <script src="js/latest.js?v=1.0"></script>
+    <script src="js/claims.js?v=4.0"></script>
+    <script src="js/app.js?v=4.0"></script>
+</body>
+</html>

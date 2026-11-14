@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="color-scheme" content="dark light">
+    <meta name="theme-color" content="#090d18">
+    <title>Sign in | Kalki-Kit News Fact Check</title>
+
+    <!-- Apply the saved theme before first paint so light-theme users never see a dark flash -->
+    <script>
+        try {
+            var t = localStorage.getItem('kalki_theme');
+            if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-bs-theme', t);
+        } catch (e) {}
+    </script>
+
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="alternate icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="assets/logo.jpg">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/styles.css?v=6.0">
+    <style>
+        .login-wrapper {
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+            padding: 1.25rem;
+        }
+        .login-card {
+            max-width: 440px;
+            width: 100%;
+            padding: 2.5rem 2.25rem 2rem;
+            text-align: center;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+        }
+        .login-card:hover { transform: none; }
+        @media (max-width: 480px) {
+            .login-card { padding: 2rem 1.25rem 1.5rem; }
+        }
+        .login-brand h2 {
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            margin-bottom: 0.15rem;
+            font-size: 1.7rem;
+        }
+        .login-brand h2 span { color: var(--primary-text); }
+        .login-brand p {
+            color: var(--text-muted);
+            letter-spacing: 0.02em;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 1.75rem;
+        }
+        .login-brand .custom-logo {
+            box-shadow: 0 0 0 5px var(--primary-soft), 0 10px 30px var(--primary-glow);
+        }
+        .login-title { font-size: 1.15rem; margin-bottom: 1.35rem; }
+
+        .form-floating > .form-control { height: calc(3.5rem + 2px); }
+        .form-floating > label { padding-left: 1rem; }
+        .form-floating > .form-control:focus ~ label,
+        .form-floating > .form-control:not(:placeholder-shown) ~ label {
+            color: var(--primary-text);
+        }
+
+        /* Password visibility toggle */
+        .pw-field { position: relative; }
+        .pw-field .form-control { padding-right: 3rem; }
+        .pw-toggle {
+            position: absolute;
+            top: 50%;
+            right: 0.55rem;
+            transform: translateY(-50%);
+            z-index: 5;
+            width: 36px;
+            height: 36px;
+            border: 0;
+            border-radius: var(--radius-sm);
+            background: transparent;
+            color: var(--text-muted);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+        .pw-toggle:hover { color: var(--text-strong); background: var(--primary-soft); }
+
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+            margin: 0.35rem 0 1rem;
+            color: var(--text-faint);
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .auth-divider::before, .auth-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-color);
+        }
+
+        .toggle-link {
+            color: var(--primary-text);
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+        }
+        .toggle-link:hover { border-bottom-color: currentColor; }
+
+        .auth-error {
+            display: none;
+            padding: 0.65rem 0.9rem;
+            border-radius: var(--radius-md);
+            background: var(--danger-soft);
+            border: 1px solid var(--danger-border);
+            color: var(--danger-text);
+            font-weight: 600;
+        }
+
+        .login-footnote { color: var(--text-faint); font-size: 0.75rem; line-height: 1.6; }
+
+        .login-theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background Elements -->
+    <div class="bg-orb orb-1" aria-hidden="true"></div>
+    <div class="bg-orb orb-2" aria-hidden="true"></div>
+
+    <button type="button" class="btn btn-icon login-theme-toggle" id="login-theme-toggle" title="Toggle theme" aria-label="Toggle theme">
+        <i class="fa-solid fa-sun"></i>
+    </button>
+
+    <div class="login-wrapper p-4">
+        <main class="card-glass login-card fade-in">
+            <div class="login-brand">
+                <img src="assets/logo.jpg" class="custom-logo mb-3" style="width: 80px; height: 80px;" alt="Kalki-Kit logo" onerror="this.style.display='none'">
+                <h2>KALKI<span>-KIT</span></h2>
+                <p>Check any news claim against trusted sources</p>
+            </div>
+
+            <h1 id="form-title" class="login-title">Sign In</h1>
+
+            <form id="auth-form">
+                <div class="form-floating mb-3 text-start">
+                    <input type="email" class="form-control" id="userEmail" placeholder="name@example.com" autocomplete="email" required>
+                    <label for="userEmail">Email Address</label>
+                </div>
+
+                <div class="form-floating mb-3 text-start pw-field">
+                    <input type="password" class="form-control" id="userPass" placeholder="Password" autocomplete="current-password" required minlength="6">
+                    <label for="userPass">Password</label>
+                    <button type="button" class="pw-toggle" id="pw-toggle" aria-label="Show password" title="Show password">
+                        <i class="fa-regular fa-eye"></i>
+                    </button>
+                </div>
+
+                <div id="auth-error" class="auth-error small mb-3 text-start" role="alert">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i> <span id="auth-error-msg">Error</span>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-glow w-100 py-3 mb-3" id="btn-auth">
+                    <i class="fa-solid fa-fingerprint me-2"></i> <span id="btn-auth-text">Sign In</span>
+                </button>
+            </form>
+
+            <div class="auth-divider"><span>or</span></div>
+
+            <button type="button" class="btn btn-outline-info w-100 py-2" id="btn-guest-login">
+                <i class="fa-solid fa-user me-2"></i> Continue as guest
+            </button>
+
+            <div class="text-muted small mt-4">
+                <span id="toggle-text">Don't have an account?</span>
+                <span class="toggle-link" id="toggle-auth-mode" role="button" tabindex="0">Sign Up</span>
+            </div>
+
+            <div class="login-footnote mt-4 pt-3 border-top">
+                <i class="fa-solid fa-lock me-1"></i> Guest sessions last 12 hours and are not linked to any account.
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <!-- Firebase SDK (v8) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <script>
+        // Theme: the toggle shares its storage key with the main app, so the choice carries over
+        (function () {
+            var root = document.documentElement;
+            var btn = document.getElementById('login-theme-toggle');
+            var meta = document.querySelector('meta[name="theme-color"]');
+            function paint() {
+                var dark = root.getAttribute('data-bs-theme') !== 'light';
+                btn.innerHTML = dark ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+                var label = dark ? 'Switch to light theme' : 'Switch to dark theme';
+                btn.setAttribute('aria-label', label);
+                btn.setAttribute('title', label);
+                if (meta) meta.setAttribute('content', dark ? '#090d18' : '#f3f5fb');
+            }
+            paint();
+            btn.addEventListener('click', function () {
+                var next = root.getAttribute('data-bs-theme') === 'light' ? 'dark' : 'light';
+                root.classList.add('theme-switching');
+                setTimeout(function () { root.classList.remove('theme-switching'); }, 400);
+                root.setAttribute('data-bs-theme', next);
+                try { localStorage.setItem('kalki_theme', next); } catch (e) {}
+                paint();
+            });
+        })();
+
+        // Password visibility toggle
+        (function () {
+            var field = document.getElementById('userPass');
+            var btn = document.getElementById('pw-toggle');
+            btn.addEventListener('click', function () {
+                var show = field.type === 'password';
+                field.type = show ? 'text' : 'password';
+                btn.innerHTML = show ? '<i class="fa-regular fa-eye-slash"></i>' : '<i class="fa-regular fa-eye"></i>';
+                btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+                btn.setAttribute('title', show ? 'Hide password' : 'Show password');
+            });
+            // "Sign Up" / "Sign In" switch is a span: allow keyboard activation
+            var toggle = document.getElementById('toggle-auth-mode');
+            toggle.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle.click(); }
+            });
+        })();
+    </script>
+
+    <!-- Auth Logic -->
+    <script src="js/auth.js?v=3.1"></script>
+</body>
+</html>
