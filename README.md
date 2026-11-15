@@ -90,6 +90,14 @@ Kalki-Kit/
    npm test
    ```
 
+   Run the live Gemini/evidence integration suite separately (requires a valid `GEMINI_API_KEY` in `.env`):
+
+   ```powershell
+   npm run test:integration
+   ```
+
+The integration suite uses `GEMINI_MODEL` (default: `gemini-3.6-flash`) and checks eight representative claims. It uses live external sources and Gemini, so results can vary as sources and model availability change.
+
 The server exposes a public health endpoint at `/api/health`. It reports whether a Gemini key is configured; it does not expose the key.
 
 ## Deploy on Render

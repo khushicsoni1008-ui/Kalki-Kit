@@ -352,13 +352,31 @@ async function fetchWikipedia(titles, relevanceText) {
 
 async function gatherEvidence(plan, claim) {
     const newsQueries = plan.newsQueries.length ? plan.newsQueries : [contentTokens(claim).slice(0, 7).join(' ')];
-    const factQuery = plan.factCheckQuery || newsQueries[0];
+    const lowerClaim = `${claim} ${plan.coreClaim || ''}`.toLowerCase();
+    const hasHumanDinosaurCoexistence = /\\b(humans?|homo sapiens|people)\\b/.test(lowerClaim) &&
+        /\\b(dinosaurs?|non-avian)\\b/.test(lowerClaim);
+
+    // LLM search plans can miss the two timelines needed to assess a coexistence claim.
+    // Add focused reference pages without hard-coding the verdict.
+    const targetedWikiTitles = hasHumanDinosaurCoexistence
+        ? ['Cretaceous–Paleogene extinction event', 'Homo sapiens', 'Dinosaur']
+        : [];
+    const wikiTitles = [...new Set([...targetedWikiTitles, ...plan.wikipediaTitles])].slice(0, 6);
+    const effectiveNewsQueries = hasHumanDinosaurCoexistence
+        ? [...new Set([...newsQueries, 'non-avian dinosaurs extinction 66 million years ago', 'Homo sapiens origin 300000 years ago'])].slice(0, 5)
+        : newsQueries;
+    const factQuery = hasHumanDinosaurCoexistence
+        ? 'non-avian dinosaurs extinction Homo sapiens timeline'
+        : (plan.factCheckQuery || newsQueries[0]);
+    const relevanceText = hasHumanDinosaurCoexistence
+        ? `${claim} non-avian dinosaurs extinct 66 million years ago Homo sapiens evolved about 300000 years ago`
+        : `${claim} ${factQuery}`;
 
     const [newsLists, factNews, factFeeds, wiki] = await Promise.all([
-        withDeadline(Promise.all(newsQueries.map(q => searchGoogleNews(q, { limit: 4 }))), GATHER_DEADLINE_MS, []),
+        withDeadline(Promise.all(effectiveNewsQueries.map(q => searchGoogleNews(q, { limit: 4 }))), GATHER_DEADLINE_MS, []),
         withDeadline(searchGoogleNews(factQuery, { siteFilter: true, limit: 5 }), GATHER_DEADLINE_MS, []),
-        withDeadline(searchFactCheckFeeds(`${factQuery} ${newsQueries.join(' ')}`), GATHER_DEADLINE_MS, []),
-        withDeadline(fetchWikipedia(plan.wikipediaTitles, `${claim} ${factQuery}`), GATHER_DEADLINE_MS, [])
+        withDeadline(searchFactCheckFeeds(`${factQuery} ${effectiveNewsQueries.join(' ')}`), GATHER_DEADLINE_MS, []),
+        withDeadline(fetchWikipedia(wikiTitles, relevanceText), GATHER_DEADLINE_MS, [])
     ]);
 
     // Fact-checks first, then Wikipedia, then news; drop duplicate titles
@@ -394,6 +412,7 @@ Rules:
 2. An item is SUPPORTS or CONTRADICTS only if it directly addresses what the claim asserts. An item that merely mentions the same people, place or topic is CONTEXT or IRRELEVANT.
 2b. Stance is ALWAYS about the claim exactly as written, never about the item's own topic. If an item says the claim is false, fake, a hoax, debunked, an edited or misattributed video, or says the opposite happened, its stance is CONTRADICTS, even though the item "supports" a debunk. If an item says the claim is true or confirms it, its stance is SUPPORTS. Your verdict and your stances must agree: a FALSE verdict needs at least one CONTRADICTS item, and a TRUE verdict needs at least one SUPPORTS item.
 2c. A claim can be negative ("X is not the son of Y", "X never said Z"). Evidence that states the opposite (X is the son of Y; X said Z) CONTRADICTS it, and evidence that confirms the negative SUPPORTS it. Statements of long-established facts in an encyclopedia entry count as direct evidence.
+2d. For claims about whether two groups, species or events existed at the same time, compare dated facts across the gathered sources. Two authoritative timeline sources can jointly CONTRADICT a coexistence claim when their dates make overlap impossible (for example, an extinction millions of years before the appearance of modern humans). Mark both timeline items CONTRADICTS and cite both; do not require one source to repeat the entire claim.
 3. If the claim says X caused Y, or gives a motive or reason, you need evidence of that cause. Evidence that X and Y both exist is not enough.
 4. Evidence that someone alleges or demands something does not prove the allegation is true.
 5. If a fact-checker rated this claim, follow that rating. Prefer newer items when the claim is about the present.
