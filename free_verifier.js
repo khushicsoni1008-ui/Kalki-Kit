@@ -362,7 +362,7 @@ async function fetchWikipedia(titles, relevanceText) {
     }
 
     if (missingTitles.length) {
-        const requestUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles=${encodeURIComponent(missingTitles.join('|'))}`;
+        const requestUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exlimit=max&redirects=1&format=json&titles=${encodeURIComponent(missingTitles.join('|'))}`;
         const startedAt = Date.now();
         console.log(`   [wiki] Batch requesting ${missingTitles.length} page(s): ${missingTitles.join(' | ')}`);
         try {
