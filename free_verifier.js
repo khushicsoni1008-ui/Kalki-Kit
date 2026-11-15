@@ -334,11 +334,11 @@ async function searchFactCheckFeeds(keywordText) {
 async function fetchWikipedia(titles, relevanceText) {
     const wanted = new Set(contentTokens(relevanceText));
     const lists = await Promise.all(titles.map(async title => {
-        const url = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles=${encodeURIComponent(title)}`;
+        const requestUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles=${encodeURIComponent(title)}`;
         const startedAt = Date.now();
         console.log(`   [wiki] Requesting "${title}"`);
         try {
-            const res = await fetch(url, {
+            const res = await fetch(requestUrl, {
                 headers: { ...BROWSER_UA, 'Accept': 'application/json' },
                 signal: AbortSignal.timeout(8000)
             });
@@ -372,10 +372,10 @@ async function fetchWikipedia(titles, relevanceText) {
             const best = paragraphs.slice(1)
                 .map(p => ({ p, score: contentTokens(p).filter(t => wanted.has(t)).length }))
                 .filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 2).map(x => x.p.slice(0, 450));
-            const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/\s+/g, '_'))}`;
+            const articleUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/\s+/g, '_'))}`;
             const text = cleanText([paragraphs[0].slice(0, 300), ...best].join(' ... '));
             console.log(`   [wiki] "${title}" parsed as "${page.title}"; extract chars=${page.extract.length}, paragraphs=${paragraphs.length}, selected chars=${text.length}`);
-            return [{ kind: 'WIKIPEDIA', publisher: 'Wikipedia', title: cleanText(page.title), url, publisherUrl: url, date: '', text }];
+            return [{ kind: 'WIKIPEDIA', publisher: 'Wikipedia', title: cleanText(page.title), url: articleUrl, publisherUrl: articleUrl, date: '', text }];
         } catch (e) {
             console.warn(`   [wiki] "${title}" request error after ${((Date.now() - startedAt) / 1000).toFixed(1)}s: ${e.name}: ${e.message}`);
             return [];
