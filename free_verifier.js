@@ -345,7 +345,7 @@ async function fetchWikipedia(titles, relevanceText) {
             const body = await res.text();
             console.log(`   [wiki] "${title}" HTTP ${res.status} in ${((Date.now() - startedAt) / 1000).toFixed(1)}s; bytes=${body.length}`);
             if (!res.ok) {
-                console.warn(`   [wiki] "${title}" failed: HTTP ${res.status}; response=${body.slice(0, 180).replace(/\\s+/g, ' ')}`);
+                console.warn(`   [wiki] "${title}" failed: HTTP ${res.status}; response=${body.slice(0, 180).replace(/\s+/g, ' ')}`);
                 return [];
             }
             let data;
@@ -364,7 +364,7 @@ async function fetchWikipedia(titles, relevanceText) {
                 console.warn(`   [wiki] "${title}" has no extract; page title=${page.title || 'unknown'}`);
                 return [];
             }
-            const paragraphs = page.extract.split(/\\n+/).map(p => p.trim()).filter(p => p.length > 60 && !p.startsWith('=='));
+            const paragraphs = page.extract.split(/\n+/).map(p => p.trim()).filter(p => p.length > 60 && !p.startsWith('=='));
             if (!paragraphs.length) {
                 console.warn(`   [wiki] "${title}" extract had no usable paragraphs; extract chars=${page.extract.length}`);
                 return [];
@@ -372,7 +372,7 @@ async function fetchWikipedia(titles, relevanceText) {
             const best = paragraphs.slice(1)
                 .map(p => ({ p, score: contentTokens(p).filter(t => wanted.has(t)).length }))
                 .filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 2).map(x => x.p.slice(0, 450));
-            const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/\\s+/g, '_'))}`;
+            const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/\s+/g, '_'))}`;
             const text = cleanText([paragraphs[0].slice(0, 300), ...best].join(' ... '));
             console.log(`   [wiki] "${title}" parsed as "${page.title}"; extract chars=${page.extract.length}, paragraphs=${paragraphs.length}, selected chars=${text.length}`);
             return [{ kind: 'WIKIPEDIA', publisher: 'Wikipedia', title: cleanText(page.title), url, publisherUrl: url, date: '', text }];
