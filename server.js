@@ -50,7 +50,7 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use('/api/verify-image', express.json({ limit: '4mb' })); // a downsized picture, base64-encoded
+app.use('/api/verify-image', express.json({ limit: '5mb' })); // accommodates a 3 MB image after base64 encoding and JSON overhead
 app.use(express.json({ limit: '20kb' })); // everything else is a few hundred characters at most
 
 // Only the web app is public: not server code, .env, tests, docs or node_modules
