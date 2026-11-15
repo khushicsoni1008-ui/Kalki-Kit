@@ -10,7 +10,8 @@ Kalki-Kit is an educational misinformation-awareness and claim-verification proj
 - Article-link checking with public-address validation before fetching.
 - Image inspection for visible signs of AI generation or editing.
 - Firebase Authentication and temporary guest sessions.
-- A dashboard for viewing locally saved checks and recent fact-checking items.
+- A dashboard for viewing saved checks and recent fact-checking items.
+- Firestore-backed, account-private history for signed-in users; guest history remains local.
 
 ## Technology stack
 
@@ -18,7 +19,7 @@ Kalki-Kit is an educational misinformation-awareness and claim-verification proj
 - Backend: Node.js 20+ and Express.
 - AI integration: Google Gemini API, called from the backend.
 - Authentication: Firebase Authentication.
-- Local history: browser localStorage.
+- Cloud history: Firebase Cloud Firestore for signed-in users; browser localStorage is the offline cache and guest-history store.
 
 ## Project structure
 
@@ -119,13 +120,29 @@ This project serves its frontend and API from the same Express application, so d
    - `TRUST_PROXY`: `true` (for Render's reverse-proxy deployment)
 6. Deploy and open the Render-provided HTTPS URL.
 7. In Firebase Console, add the deployed hostname under Authentication → Settings → Authorized domains. Confirm Email/Password sign-in is enabled.
-8. Test sign-up, login, guest access, text verification, link checking, image checking and the latest fact-check feed.
+8. In Firebase Console, create a Cloud Firestore database in the same `kalki-kit` Firebase project.
+9. Publish the rules from `firestore.rules` in Firestore → Rules. These rules restrict every user's checks to their own Firebase UID.
+10. Test sign-up, login, guest access, text verification, link checking, image checking, history save/load/delete, and the latest fact-check feed.
 
 Render supplies the `PORT` environment variable. Do not hard-code a production port.
 
+## Firebase Cloud Firestore setup
+
+The dashboard loads the Firebase 8.10.1 Firestore browser SDK and stores signed-in users' checks at `users/{uid}/checks/{checkId}`. Firestore is optional at runtime: if it is not configured or temporarily unavailable, the app keeps the check in that account's local browser cache and reports that cloud sync is unavailable.
+
+Before enabling cloud history in production:
+
+1. Open the existing Firebase project (`kalki-kit`) and create a Cloud Firestore database.
+2. Open Firestore → Rules, replace the rules with the contents of `firestore.rules`, and publish them.
+3. Keep Firebase Authentication Email/Password enabled and ensure the Render hostname is an authorized domain.
+4. Sign in with a normal Firebase account and test saving, refreshing, deleting, and clearing checks. Guest sessions intentionally do not use Firestore.
+
+Only the authenticated user's UID-scoped collection is accessible to that user. Image thumbnails and uploaded image bytes are excluded from cloud history. Do not loosen the rules to public read/write access.
+
 ## Current MVP limitations
 
-- Saved claim history is stored in each browser's localStorage; it is not synced across devices.
+- Signed-in users' history is synced to Firestore. Guest history remains in the current browser and is not synced across devices.
+- Existing history in the old `kalki_claims_repo` browser key is not automatically uploaded to an account. This avoids accidentally importing guest or another account's local records.
 - Guest-session tokens and in-memory caches are held by the server process. They are cleared when the process restarts and are not shared across multiple instances.
 - A persistent database and shared session/cache store would be needed for durable multi-user production use.
 - Rate limits are currently in-memory and are not a complete abuse-prevention system for a large public service.
