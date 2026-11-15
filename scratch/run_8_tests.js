@@ -28,7 +28,7 @@ const testCases = [
     },
     {
         id: 6,
-        claim: "Humans and dinosaurs lived together.",
+        claim: "Modern humans lived at the same time as non-avian dinosaurs.",
         expected: ["FALSE"]
     },
     {
@@ -45,14 +45,16 @@ const testCases = [
 
 async function runTests() {
     console.log("=================================================================");
+    const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
     console.log("RUNNING 8 MANDATORY VERIFICATION TESTS ON KALKI-KIT ENGINE");
+    console.log(`Primary Gemini model: ${modelName}`);
     console.log("=================================================================\n");
 
     let allPassed = true;
 
     for (const test of testCases) {
         console.log(`>>> EXECUTING TEST ${test.id}: "${test.claim}"`);
-        const result = await executeUniversalVerification(test.claim, process.env.GEMINI_API_KEY || '', 'gemini-3.8-flash');
+        const result = await executeUniversalVerification(test.claim, process.env.GEMINI_API_KEY || '', modelName);
         
         const passed = test.expected.includes(result.verdict);
         if (passed) {
@@ -61,7 +63,7 @@ async function runTests() {
             console.error(`[FAIL] Test ${test.id}: Expected ${test.expected.join(' or ')} -> Received ${result.verdict}`);
             allPassed = false;
         }
-        console.log(`       Confidence: ${result.confidence}% | Sources: ${result.sources.length}`);
+        console.log(`       Confidence: ${result.confidencePercent}% | Sources: ${result.sources.length}`);
         console.log(`       Why: ${result.why.slice(0, 140)}...\n`);
     }
 

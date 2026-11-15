@@ -6,7 +6,9 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test": "node --test",
+    "test:integration": "node scratch/run_8_tests.js"
   },
   "keywords": [
     "fact-checking",

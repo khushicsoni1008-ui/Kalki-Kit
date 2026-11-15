@@ -25,7 +25,9 @@ window.safeUrl = function (url) {
 
 // The backend lives on the same origin; when the page is opened from another local dev server, point at port 3000
 window.getBackendBase = window.getBackendBase || function () {
-    return (window.location.protocol.startsWith('http') && window.location.port === '3000') ? '' : 'http://localhost:3000';
+    const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    // Use the local Express server during split-port development; use same-origin API routes in production.
+    return isLocalHost && window.location.port !== '3000' ? 'http://localhost:3000' : '';
 };
 
 window.formatTimeAgo = function (ts) {
