@@ -15,7 +15,7 @@
         if (typeof window.showKalkiToast === 'function') {
             window.showKalkiToast('Cloud history', message, type);
         } else {
-            console.warn('[KalkI cloud history]', message);
+            console.warn('[KALKI cloud history]', message);
         }
     }
 
@@ -82,7 +82,28 @@
 
             const snapshot = await checksRef.orderBy('timestamp', 'desc').limit(MAX_RECORDS).get();
             const cloudRecords = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            const localRecords = window.KalkiData.getClaims();
+            let localRecords = window.KalkiData.getClaims();
+
+            // The previous release used one shared browser key. Never upload that
+            // ambiguous history silently: ask once so guest/other-account records
+            // are not accidentally attached to this Firebase account.
+            const migrationKey = 'kalki_history_migration_' + user.uid;
+            if (!localStorage.getItem(migrationKey)) {
+                let legacyRecords = [];
+                try {
+                    const parsed = JSON.parse(localStorage.getItem('kalki_claims_repo') || '[]');
+                    if (Array.isArray(parsed)) legacyRecords = parsed.filter(record => record && typeof record === 'object');
+                } catch (e) {}
+                if (legacyRecords.length && window.confirm(
+                    'We found checks saved by an older version of Kalki-Kit in this browser. They may include guest checks. Import them into the account you are signed in with?'
+                )) {
+                    localRecords = [...localRecords, ...legacyRecords];
+                    localStorage.setItem(migrationKey, 'imported');
+                } else {
+                    localStorage.setItem(migrationKey, 'skipped');
+                }
+            }
+
             const cloudById = new Map(cloudRecords.map(record => [record.id, record]));
             const merged = new Map(cloudById);
             localRecords.forEach(record => {
