@@ -392,6 +392,8 @@ async function fetchWikipedia(titles, relevanceText) {
                     console.warn(`   [wiki] Batch returned invalid JSON: ${e.message}`);
                 }
                 const pages = Object.values(data?.query?.pages || {});
+                console.log(`   [wiki] API returned page titles: ${pages.map(page => `${page.title || '(untitled)'}${page.missing !== undefined ? ' [missing]' : ''}`).join(' | ') || '(none)'}`);
+                console.log(`   [wiki] API normalized: ${(data?.query?.normalized || []).map(item => `${item.from} -> ${item.to}`).join(' | ') || '(none)'}; redirects: ${(data?.query?.redirects || []).map(item => `${item.from} -> ${item.to}`).join(' | ') || '(none)'}`);
                 const pageByTitle = new Map();
                 for (const page of pages) {
                     if (!page?.extract || page.missing !== undefined) continue;
