@@ -70,9 +70,11 @@
             const replaced = this.claims.filter(c => c.id !== claim.id && sameText(c)).map(c => c.id);
             this.claims = this.claims.filter(c => c.id !== claim.id && !sameText(c));
             this.claims.unshift(claim);
+            const overflow = this.claims.slice(MAX_RECORDS).map(c => c.id);
             if (this.claims.length > MAX_RECORDS) this.claims.length = MAX_RECORDS;
             writeStore(this.claims);
-            if (replaced.length) window.dispatchEvent(new CustomEvent('kalki_claims_deleted', { detail: replaced }));
+            const removedIds = [...new Set([...replaced, ...overflow])];
+            if (removedIds.length) window.dispatchEvent(new CustomEvent('kalki_claims_deleted', { detail: removedIds }));
             window.dispatchEvent(new CustomEvent('kalki_claim_added', { detail: claim }));
             return claim;
         },
