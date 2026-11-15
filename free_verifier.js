@@ -330,24 +330,115 @@ async function searchFactCheckFeeds(keywordText) {
     return lists.flat();
 }
 
-// Full plain-text article cut into paragraphs: keeps the intro plus the 2 paragraphs that best match the claim
-async function fetchWikipedia(titles, relevanceText) {
+// Wikipedia API: batch titles into one request to avoid burst rate limits.
+// Cache successful extracts in-process so repeated claims reuse the same reference pages.
+const wikipediaCache = new Map();
+const WIKIPEDIA_CACHE_TTL_MS = 30 * 60 * 1000;
+
+function wikipediaEvidence(page, relevanceText) {
+    if (!page?.extract) return null;
+    const paragraphs = page.extract.split(/\n+/).map(p => p.trim()).filter(p => p.length > 60 && !p.startsWith('=='));
+    if (!paragraphs.length) return null;
     const wanted = new Set(contentTokens(relevanceText));
-    const lists = await Promise.all(titles.map(async title => {
-        const body = await fetchText(`https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles=${encodeURIComponent(title)}`, { ttlMs: 60 * 60 * 1000, timeoutMs: 8000 });
+    const best = paragraphs.slice(1)
+        .map(p => ({ p, score: contentTokens(p).filter(t => wanted.has(t)).length }))
+        .filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 2).map(x => x.p.slice(0, 650));
+    const articleUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/\s+/g, '_'))}`;
+    const text = cleanText([paragraphs[0].slice(0, 450), ...best].join(' ... '));
+    return { kind: 'WIKIPEDIA', publisher: 'Wikipedia', title: cleanText(page.title), url: articleUrl, publisherUrl: articleUrl, date: '', text };
+}
+
+async function fetchWikipedia(titles, relevanceText) {
+    const uniqueTitles = [...new Set(titles.filter(Boolean))];
+    if (!uniqueTitles.length) return [];
+
+    const now = Date.now();
+    const cachedPages = new Map();
+    const missingTitles = [];
+    for (const title of uniqueTitles) {
+        const cached = wikipediaCache.get(title.toLowerCase());
+        if (cached && now - cached.at < WIKIPEDIA_CACHE_TTL_MS) cachedPages.set(title.toLowerCase(), cached.page);
+        else missingTitles.push(title);
+    }
+
+    if (missingTitles.length) {
+        const requestUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exintro=1&exlimit=20&redirects=1&format=json&titles=${encodeURIComponent(missingTitles.join('|'))}`;
+        const startedAt = Date.now();
+        console.log(`   [wiki] Batch requesting ${missingTitles.length} page(s): ${missingTitles.join(' | ')}`);
         try {
-            const page = Object.values(JSON.parse(body || '{}').query?.pages || {})[0];
-            if (!page || page.missing !== undefined || !page.extract) return [];
-            const paragraphs = page.extract.split(/\n+/).map(p => p.trim()).filter(p => p.length > 60 && !p.startsWith('=='));
-            if (!paragraphs.length) return [];
-            const best = paragraphs.slice(1)
-                .map(p => ({ p, score: contentTokens(p).filter(t => wanted.has(t)).length }))
-                .filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 2).map(x => x.p.slice(0, 450));
-            const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/\s+/g, '_'))}`;
-            return [{ kind: 'WIKIPEDIA', publisher: 'Wikipedia', title: cleanText(page.title), url, publisherUrl: url, date: '', text: cleanText([paragraphs[0].slice(0, 300), ...best].join(' ... ')) }];
-        } catch (e) { return []; /* skip unreadable page */ }
-    }));
-    return lists.flat();
+            let res = await fetch(requestUrl, {
+                headers: { ...BROWSER_UA, 'User-Agent': 'KalkiKit/1.0 (https://github.com/khushicsoni1008-ui/Kalki-Kit)', 'Accept': 'application/json' },
+                signal: AbortSignal.timeout(8000)
+            });
+            if (res.status === 429) {
+                const retryAfter = Number(res.headers.get('retry-after'));
+                const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 2000) : 1000;
+                console.warn(`   [wiki] HTTP 429 for batch; retrying once after ${waitMs}ms`);
+                await sleep(waitMs);
+                res = await fetch(requestUrl, {
+                    headers: { ...BROWSER_UA, 'User-Agent': 'KalkiKit/1.0 (https://github.com/khushicsoni1008-ui/Kalki-Kit)', 'Accept': 'application/json' },
+                    signal: AbortSignal.timeout(8000)
+                });
+            }
+            const body = await res.text();
+            console.log(`   [wiki] Batch HTTP ${res.status} in ${((Date.now() - startedAt) / 1000).toFixed(1)}s; bytes=${body.length}`);
+            if (!res.ok) {
+                console.warn(`   [wiki] Batch failed: HTTP ${res.status}; response=${body.slice(0, 180).replace(/\s+/g, ' ')}`);
+            } else {
+                let data;
+                try {
+                    data = JSON.parse(body || '{}');
+                } catch (e) {
+                    console.warn(`   [wiki] Batch returned invalid JSON: ${e.message}`);
+                }
+                const pages = Object.values(data?.query?.pages || {});
+                console.log(`   [wiki] API returned pages: ${pages.map(page => `${page.title || '(untitled)'}${page.missing !== undefined ? ' [missing]' : page.extract ? ` [extract ${page.extract.length} chars]` : ' [NO EXTRACT]'}`).join(' | ') || '(none)'}`);
+                console.log(`   [wiki] API normalized: ${(data?.query?.normalized || []).map(item => `${item.from} -> ${item.to}`).join(' | ') || '(none)'}; redirects: ${(data?.query?.redirects || []).map(item => `${item.from} -> ${item.to}`).join(' | ') || '(none)'}`);
+                const pageByTitle = new Map();
+                for (const page of pages) {
+                    if (!page?.extract || page.missing !== undefined) continue;
+                    const key = String(page.title || '').toLowerCase();
+                    pageByTitle.set(key, page);
+                    wikipediaCache.set(key, { at: Date.now(), page });
+                }
+                // MediaWiki can normalize spelling or follow redirects; map each requested title to its final page.
+                const aliases = new Map();
+                for (const item of [...(data?.query?.normalized || []), ...(data?.query?.redirects || [])]) {
+                    aliases.set(String(item.from || '').toLowerCase(), String(item.to || '').toLowerCase());
+                }
+                for (const requestedTitle of missingTitles) {
+                    let key = requestedTitle.toLowerCase();
+                    const visited = new Set();
+                    while (aliases.has(key) && !visited.has(key)) {
+                        visited.add(key);
+                        key = aliases.get(key);
+                    }
+                    const page = pageByTitle.get(key) || [...pageByTitle.values()].find(p => String(p.title || '').toLowerCase() === key);
+                    if (page) {
+                        cachedPages.set(requestedTitle.toLowerCase(), page);
+                        wikipediaCache.set(requestedTitle.toLowerCase(), { at: Date.now(), page });
+                    }
+                }
+                console.log(`   [wiki] Batch parsed ${pages.filter(p => p.extract).length}/${missingTitles.length} page extracts`);
+            }
+        } catch (e) {
+            console.warn(`   [wiki] Batch request error after ${((Date.now() - startedAt) / 1000).toFixed(1)}s: ${e.name}: ${e.message}`);
+        }
+    }
+
+    const results = [];
+    for (const requestedTitle of uniqueTitles) {
+        let page = cachedPages.get(requestedTitle.toLowerCase());
+        if (!page) {
+            // Redirects and normalized titles may differ from the requested spelling.
+            page = [...cachedPages.values()].find(p => String(p.title || '').toLowerCase() === requestedTitle.toLowerCase());
+        }
+        if (!page) continue;
+        const item = wikipediaEvidence(page, relevanceText);
+        if (item && !results.some(existing => existing.title === item.title)) results.push(item);
+    }
+    console.log(`   [wiki] Completed: ${results.length}/${uniqueTitles.length} pages returned usable extracts (${missingTitles.length} fetched, ${uniqueTitles.length - missingTitles.length} cached)`);
+    return results;
 }
 
 async function gatherEvidence(plan, claim) {

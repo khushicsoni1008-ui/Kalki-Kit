@@ -159,6 +159,10 @@ const authReady = new Promise((resolve) => {
     else resolve(null);
 });
 
+// Shared with the history module; guest sessions deliberately do not receive cloud access.
+window.kalkiAuthReady = authReady;
+window.kalkiAuth = auth;
+
 (function checkSession() {
     const isLoginPage = window.location.pathname.endsWith('login.html');
     const page = document.documentElement;
