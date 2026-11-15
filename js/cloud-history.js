@@ -22,7 +22,7 @@
     function safeRecord(record, uid) {
         const copy = JSON.parse(JSON.stringify(record, (key, value) => {
             if (['thumb', 'imageBase64', 'previewUrl', 'fileData'].includes(key)) return undefined;
-            if (typeof value === 'string' && /^data:image\\//i.test(value)) return undefined;
+            if (typeof value === 'string' && value.toLowerCase().startsWith('data:image/')) return undefined;
             return value;
         }));
         copy.uid = uid;
@@ -83,11 +83,15 @@
             const snapshot = await checksRef.orderBy('timestamp', 'desc').limit(MAX_RECORDS).get();
             const cloudRecords = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             const localRecords = window.KalkiData.getClaims();
-            const merged = new Map();
-            cloudRecords.forEach(record => merged.set(record.id, record));
+            const cloudById = new Map(cloudRecords.map(record => [record.id, record]));
+            const merged = new Map(cloudById);
             localRecords.forEach(record => {
                 const current = merged.get(record.id);
                 if (!current || (record.timestamp || 0) > (current.timestamp || 0)) merged.set(record.id, record);
+            });
+            const localToUpload = localRecords.filter(record => {
+                const current = cloudById.get(record.id);
+                return !current || (record.timestamp || 0) > (current.timestamp || 0);
             });
 
             const mergedRecords = [...merged.values()]
@@ -96,9 +100,9 @@
             window.KalkiData.setClaims(mergedRecords);
 
             // Restore locally cached authenticated records after an offline visit.
-            if (localRecords.length) {
+            if (localToUpload.length) {
                 const batch = db.batch();
-                localRecords.slice(0, MAX_RECORDS).forEach(record => {
+                localToUpload.slice(0, MAX_RECORDS).forEach(record => {
                     batch.set(checksRef.doc(String(record.id)), safeRecord(record, user.uid), { merge: true });
                 });
                 await batch.commit();
