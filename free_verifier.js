@@ -330,59 +330,93 @@ async function searchFactCheckFeeds(keywordText) {
     return lists.flat();
 }
 
-// Full plain-text article cut into paragraphs: keeps the intro plus the 2 paragraphs that best match the claim
-async function fetchWikipedia(titles, relevanceText) {
+// Wikipedia API: batch titles into one request to avoid burst rate limits.
+// Cache successful extracts in-process so repeated claims reuse the same reference pages.
+const wikipediaCache = new Map();
+const WIKIPEDIA_CACHE_TTL_MS = 30 * 60 * 1000;
+
+function wikipediaEvidence(page, relevanceText) {
+    if (!page?.extract) return null;
+    const paragraphs = page.extract.split(/\n+/).map(p => p.trim()).filter(p => p.length > 60 && !p.startsWith('=='));
+    if (!paragraphs.length) return null;
     const wanted = new Set(contentTokens(relevanceText));
-    const lists = await Promise.all(titles.map(async title => {
-        const requestUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles=${encodeURIComponent(title)}`;
+    const best = paragraphs.slice(1)
+        .map(p => ({ p, score: contentTokens(p).filter(t => wanted.has(t)).length }))
+        .filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 2).map(x => x.p.slice(0, 650));
+    const articleUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/\s+/g, '_'))}`;
+    const text = cleanText([paragraphs[0].slice(0, 450), ...best].join(' ... '));
+    return { kind: 'WIKIPEDIA', publisher: 'Wikipedia', title: cleanText(page.title), url: articleUrl, publisherUrl: articleUrl, date: '', text };
+}
+
+async function fetchWikipedia(titles, relevanceText) {
+    const uniqueTitles = [...new Set(titles.filter(Boolean))];
+    if (!uniqueTitles.length) return [];
+
+    const now = Date.now();
+    const cachedPages = new Map();
+    const missingTitles = [];
+    for (const title of uniqueTitles) {
+        const cached = wikipediaCache.get(title.toLowerCase());
+        if (cached && now - cached.at < WIKIPEDIA_CACHE_TTL_MS) cachedPages.set(title.toLowerCase(), cached.page);
+        else missingTitles.push(title);
+    }
+
+    if (missingTitles.length) {
+        const requestUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles=${encodeURIComponent(missingTitles.join('|'))}`;
         const startedAt = Date.now();
-        console.log(`   [wiki] Requesting "${title}"`);
+        console.log(`   [wiki] Batch requesting ${missingTitles.length} page(s): ${missingTitles.join(' | ')}`);
         try {
-            const res = await fetch(requestUrl, {
-                headers: { ...BROWSER_UA, 'Accept': 'application/json' },
+            let res = await fetch(requestUrl, {
+                headers: { ...BROWSER_UA, 'User-Agent': 'KalkiKit/1.0 (https://github.com/khushicsoni1008-ui/Kalki-Kit)', 'Accept': 'application/json' },
                 signal: AbortSignal.timeout(8000)
             });
+            if (res.status === 429) {
+                const retryAfter = Number(res.headers.get('retry-after'));
+                const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 2000) : 1000;
+                console.warn(`   [wiki] HTTP 429 for batch; retrying once after ${waitMs}ms`);
+                await sleep(waitMs);
+                res = await fetch(requestUrl, {
+                    headers: { ...BROWSER_UA, 'User-Agent': 'KalkiKit/1.0 (https://github.com/khushicsoni1008-ui/Kalki-Kit)', 'Accept': 'application/json' },
+                    signal: AbortSignal.timeout(8000)
+                });
+            }
             const body = await res.text();
-            console.log(`   [wiki] "${title}" HTTP ${res.status} in ${((Date.now() - startedAt) / 1000).toFixed(1)}s; bytes=${body.length}`);
+            console.log(`   [wiki] Batch HTTP ${res.status} in ${((Date.now() - startedAt) / 1000).toFixed(1)}s; bytes=${body.length}`);
             if (!res.ok) {
-                console.warn(`   [wiki] "${title}" failed: HTTP ${res.status}; response=${body.slice(0, 180).replace(/\s+/g, ' ')}`);
-                return [];
+                console.warn(`   [wiki] Batch failed: HTTP ${res.status}; response=${body.slice(0, 180).replace(/\s+/g, ' ')}`);
+            } else {
+                let data;
+                try {
+                    data = JSON.parse(body || '{}');
+                } catch (e) {
+                    console.warn(`   [wiki] Batch returned invalid JSON: ${e.message}`);
+                }
+                const pages = Object.values(data?.query?.pages || {});
+                for (const page of pages) {
+                    if (!page?.extract || page.missing !== undefined) continue;
+                    const record = { at: Date.now(), page };
+                    wikipediaCache.set(String(page.title || '').toLowerCase(), record);
+                    cachedPages.set(String(page.title || '').toLowerCase(), page);
+                }
+                console.log(`   [wiki] Batch parsed ${pages.filter(p => p.extract).length}/${missingTitles.length} page extracts`);
             }
-            let data;
-            try {
-                data = JSON.parse(body || '{}');
-            } catch (e) {
-                console.warn(`   [wiki] "${title}" returned invalid JSON: ${e.message}`);
-                return [];
-            }
-            const page = Object.values(data.query?.pages || {})[0];
-            if (!page || page.missing !== undefined) {
-                console.warn(`   [wiki] "${title}" page missing; page keys=${JSON.stringify(Object.keys(page || {}))}`);
-                return [];
-            }
-            if (!page.extract) {
-                console.warn(`   [wiki] "${title}" has no extract; page title=${page.title || 'unknown'}`);
-                return [];
-            }
-            const paragraphs = page.extract.split(/\n+/).map(p => p.trim()).filter(p => p.length > 60 && !p.startsWith('=='));
-            if (!paragraphs.length) {
-                console.warn(`   [wiki] "${title}" extract had no usable paragraphs; extract chars=${page.extract.length}`);
-                return [];
-            }
-            const best = paragraphs.slice(1)
-                .map(p => ({ p, score: contentTokens(p).filter(t => wanted.has(t)).length }))
-                .filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 2).map(x => x.p.slice(0, 450));
-            const articleUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/\s+/g, '_'))}`;
-            const text = cleanText([paragraphs[0].slice(0, 300), ...best].join(' ... '));
-            console.log(`   [wiki] "${title}" parsed as "${page.title}"; extract chars=${page.extract.length}, paragraphs=${paragraphs.length}, selected chars=${text.length}`);
-            return [{ kind: 'WIKIPEDIA', publisher: 'Wikipedia', title: cleanText(page.title), url: articleUrl, publisherUrl: articleUrl, date: '', text }];
         } catch (e) {
-            console.warn(`   [wiki] "${title}" request error after ${((Date.now() - startedAt) / 1000).toFixed(1)}s: ${e.name}: ${e.message}`);
-            return [];
+            console.warn(`   [wiki] Batch request error after ${((Date.now() - startedAt) / 1000).toFixed(1)}s: ${e.name}: ${e.message}`);
         }
-    }));
-    const results = lists.flat();
-    console.log(`   [wiki] Completed: ${results.length}/${titles.length} pages returned usable extracts`);
+    }
+
+    const results = [];
+    for (const requestedTitle of uniqueTitles) {
+        let page = cachedPages.get(requestedTitle.toLowerCase());
+        if (!page) {
+            // Redirects and normalized titles may differ from the requested spelling.
+            page = [...cachedPages.values()].find(p => String(p.title || '').toLowerCase() === requestedTitle.toLowerCase());
+        }
+        if (!page) continue;
+        const item = wikipediaEvidence(page, relevanceText);
+        if (item && !results.some(existing => existing.title === item.title)) results.push(item);
+    }
+    console.log(`   [wiki] Completed: ${results.length}/${uniqueTitles.length} pages returned usable extracts (${missingTitles.length} fetched, ${uniqueTitles.length - missingTitles.length} cached)`);
     return results;
 }
 
