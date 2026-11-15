@@ -105,6 +105,13 @@
                 }
             }
 
+            const localById = new Map();
+            localRecords.forEach(record => {
+                const previous = localById.get(record.id);
+                if (!previous || (record.timestamp || 0) > (previous.timestamp || 0)) localById.set(record.id, record);
+            });
+            localRecords = [...localById.values()];
+
             const cloudById = new Map(cloudRecords.map(record => [record.id, record]));
             const merged = new Map(cloudById);
             localRecords.forEach(record => {
