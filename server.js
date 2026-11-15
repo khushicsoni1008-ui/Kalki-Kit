@@ -16,7 +16,7 @@ const linkChecker = require('./link_checker');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 const MAX_CLAIM_LENGTH = 1500;
 
 if (process.env.TRUST_PROXY) app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : process.env.TRUST_PROXY);

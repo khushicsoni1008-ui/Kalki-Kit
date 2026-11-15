@@ -70,7 +70,7 @@ Kalki-Kit/
 
    ```env
    GEMINI_API_KEY=your_real_key_here
-   GEMINI_MODEL=gemini-3.8-flash
+   GEMINI_MODEL=gemini-3.6-flash
    PORT=3000
    ```
 
@@ -106,7 +106,7 @@ This project serves its frontend and API from the same Express application, so d
    - Health check path: `/api/health`
 5. Add environment variables in the Render service settings:
    - `GEMINI_API_KEY`: your private Gemini API key
-   - `GEMINI_MODEL`: the model configured and available in your Google AI project
+   - `GEMINI_MODEL`: `gemini-3.6-flash` (or another stable model confirmed available to your Google AI project)
    - `NODE_ENV`: `production`
    - `TRUST_PROXY`: `true` (for Render's reverse-proxy deployment)
 6. Deploy and open the Render-provided HTTPS URL.
