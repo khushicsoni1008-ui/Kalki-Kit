@@ -142,9 +142,9 @@ Only the authenticated user's UID-scoped collection is accessible to that user. 
 ## Current MVP limitations
 
 - Signed-in users' history is synced to Firestore. Guest history remains in the current browser and is not synced across devices.
-- Existing history in the old `kalki_claims_repo` browser key is not automatically uploaded to an account. This avoids accidentally importing guest or another account's local records.
+- Existing history from the old shared browser key is offered for one-time, explicit import at sign-in because it may contain guest or another account's checks.
 - Guest-session tokens and in-memory caches are held by the server process. They are cleared when the process restarts and are not shared across multiple instances.
-- A persistent database and shared session/cache store would be needed for durable multi-user production use.
+- Guest-session tokens, rate limits and verification caches remain in memory on the server; a shared session/cache store is still needed before scaling the backend to multiple instances.
 - Rate limits are currently in-memory and are not a complete abuse-prevention system for a large public service.
 
 ## Security notes
