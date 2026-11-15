@@ -33,9 +33,9 @@ test('history storage is scoped to the signed-in Firebase UID', () => {
     const otherRecord = { id: 'B-1', title: 'Other account check' };
     const { data } = loadData({
         kalki_user_session: JSON.stringify({ mode: 'firebase', uid: 'user-a' }),
-        kalki_claims_repo_user_user-a: JSON.stringify([accountRecord]),
+        'kalki_claims_repo_user_user-a': JSON.stringify([accountRecord]),
         kalki_claims_repo: JSON.stringify([guestRecord]),
-        kalki_claims_repo_user_user-b: JSON.stringify([otherRecord])
+        'kalki_claims_repo_user_user-b': JSON.stringify([otherRecord])
     });
 
     assert.deepEqual(JSON.parse(JSON.stringify(data.getClaims())), [accountRecord]);
