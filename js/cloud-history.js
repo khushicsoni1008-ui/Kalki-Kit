@@ -27,6 +27,7 @@
         }));
         copy.uid = uid;
         copy.id = String(record.id);
+        copy.timestamp = Number(record.timestamp) || Date.now();
         if (JSON.stringify(copy).length > 700000) {
             throw new Error('This check is too large to save. Its result will remain in this browser.');
         }
@@ -92,7 +93,7 @@
                 let legacyRecords = [];
                 try {
                     const parsed = JSON.parse(localStorage.getItem('kalki_claims_repo') || '[]');
-                    if (Array.isArray(parsed)) legacyRecords = parsed.filter(record => record && typeof record === 'object');
+                    if (Array.isArray(parsed)) legacyRecords = parsed.filter(record => record && typeof record === 'object' && record.id);
                 } catch (e) {}
                 if (legacyRecords.length && window.confirm(
                     'We found checks saved by an older version of Kalki-Kit in this browser. They may include guest checks. Import them into the account you are signed in with?'
