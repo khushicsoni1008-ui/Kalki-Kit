@@ -362,7 +362,7 @@ async function fetchWikipedia(titles, relevanceText) {
     }
 
     if (missingTitles.length) {
-        const requestUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exlimit=max&redirects=1&format=json&titles=${encodeURIComponent(missingTitles.join('|'))}`;
+        const requestUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exlimit=20&redirects=1&format=json&titles=${encodeURIComponent(missingTitles.join('|'))}`;
         const startedAt = Date.now();
         console.log(`   [wiki] Batch requesting ${missingTitles.length} page(s): ${missingTitles.join(' | ')}`);
         try {
@@ -392,7 +392,7 @@ async function fetchWikipedia(titles, relevanceText) {
                     console.warn(`   [wiki] Batch returned invalid JSON: ${e.message}`);
                 }
                 const pages = Object.values(data?.query?.pages || {});
-                console.log(`   [wiki] API returned page titles: ${pages.map(page => `${page.title || '(untitled)'}${page.missing !== undefined ? ' [missing]' : ''}`).join(' | ') || '(none)'}`);
+                console.log(`   [wiki] API returned pages: ${pages.map(page => `${page.title || '(untitled)'}${page.missing !== undefined ? ' [missing]' : page.extract ? ` [extract ${page.extract.length} chars]` : ' [NO EXTRACT]'}`).join(' | ') || '(none)'}`);
                 console.log(`   [wiki] API normalized: ${(data?.query?.normalized || []).map(item => `${item.from} -> ${item.to}`).join(' | ') || '(none)'}; redirects: ${(data?.query?.redirects || []).map(item => `${item.from} -> ${item.to}`).join(' | ') || '(none)'}`);
                 const pageByTitle = new Map();
                 for (const page of pages) {
