@@ -137,7 +137,9 @@ function friendlyAuthError(error) {
 }
 
 function getBackendBase() {
-    return (window.location.protocol.startsWith('http') && window.location.port === '3000') ? '' : 'http://localhost:3000';
+    const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    // Use the local Express server during split-port development; use same-origin API routes in production.
+    return isLocalHost && window.location.port !== '3000' ? 'http://localhost:3000' : '';
 }
 
 // Session Check for index.html
