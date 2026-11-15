@@ -334,20 +334,56 @@ async function searchFactCheckFeeds(keywordText) {
 async function fetchWikipedia(titles, relevanceText) {
     const wanted = new Set(contentTokens(relevanceText));
     const lists = await Promise.all(titles.map(async title => {
-        const body = await fetchText(`https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles=${encodeURIComponent(title)}`, { ttlMs: 60 * 60 * 1000, timeoutMs: 8000 });
+        const url = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&titles=${encodeURIComponent(title)}`;
+        const startedAt = Date.now();
+        console.log(`   [wiki] Requesting "${title}"`);
         try {
-            const page = Object.values(JSON.parse(body || '{}').query?.pages || {})[0];
-            if (!page || page.missing !== undefined || !page.extract) return [];
-            const paragraphs = page.extract.split(/\n+/).map(p => p.trim()).filter(p => p.length > 60 && !p.startsWith('=='));
-            if (!paragraphs.length) return [];
+            const res = await fetch(url, {
+                headers: { ...BROWSER_UA, 'Accept': 'application/json' },
+                signal: AbortSignal.timeout(8000)
+            });
+            const body = await res.text();
+            console.log(`   [wiki] "${title}" HTTP ${res.status} in ${((Date.now() - startedAt) / 1000).toFixed(1)}s; bytes=${body.length}`);
+            if (!res.ok) {
+                console.warn(`   [wiki] "${title}" failed: HTTP ${res.status}; response=${body.slice(0, 180).replace(/\\s+/g, ' ')}`);
+                return [];
+            }
+            let data;
+            try {
+                data = JSON.parse(body || '{}');
+            } catch (e) {
+                console.warn(`   [wiki] "${title}" returned invalid JSON: ${e.message}`);
+                return [];
+            }
+            const page = Object.values(data.query?.pages || {})[0];
+            if (!page || page.missing !== undefined) {
+                console.warn(`   [wiki] "${title}" page missing; page keys=${JSON.stringify(Object.keys(page || {}))}`);
+                return [];
+            }
+            if (!page.extract) {
+                console.warn(`   [wiki] "${title}" has no extract; page title=${page.title || 'unknown'}`);
+                return [];
+            }
+            const paragraphs = page.extract.split(/\\n+/).map(p => p.trim()).filter(p => p.length > 60 && !p.startsWith('=='));
+            if (!paragraphs.length) {
+                console.warn(`   [wiki] "${title}" extract had no usable paragraphs; extract chars=${page.extract.length}`);
+                return [];
+            }
             const best = paragraphs.slice(1)
                 .map(p => ({ p, score: contentTokens(p).filter(t => wanted.has(t)).length }))
                 .filter(x => x.score > 0).sort((a, b) => b.score - a.score).slice(0, 2).map(x => x.p.slice(0, 450));
-            const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/\s+/g, '_'))}`;
-            return [{ kind: 'WIKIPEDIA', publisher: 'Wikipedia', title: cleanText(page.title), url, publisherUrl: url, date: '', text: cleanText([paragraphs[0].slice(0, 300), ...best].join(' ... ')) }];
-        } catch (e) { return []; /* skip unreadable page */ }
+            const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title.replace(/\\s+/g, '_'))}`;
+            const text = cleanText([paragraphs[0].slice(0, 300), ...best].join(' ... '));
+            console.log(`   [wiki] "${title}" parsed as "${page.title}"; extract chars=${page.extract.length}, paragraphs=${paragraphs.length}, selected chars=${text.length}`);
+            return [{ kind: 'WIKIPEDIA', publisher: 'Wikipedia', title: cleanText(page.title), url, publisherUrl: url, date: '', text }];
+        } catch (e) {
+            console.warn(`   [wiki] "${title}" request error after ${((Date.now() - startedAt) / 1000).toFixed(1)}s: ${e.name}: ${e.message}`);
+            return [];
+        }
     }));
-    return lists.flat();
+    const results = lists.flat();
+    console.log(`   [wiki] Completed: ${results.length}/${titles.length} pages returned usable extracts`);
+    return results;
 }
 
 async function gatherEvidence(plan, claim) {
