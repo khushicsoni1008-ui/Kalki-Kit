@@ -392,11 +392,30 @@ async function fetchWikipedia(titles, relevanceText) {
                     console.warn(`   [wiki] Batch returned invalid JSON: ${e.message}`);
                 }
                 const pages = Object.values(data?.query?.pages || {});
+                const pageByTitle = new Map();
                 for (const page of pages) {
                     if (!page?.extract || page.missing !== undefined) continue;
-                    const record = { at: Date.now(), page };
-                    wikipediaCache.set(String(page.title || '').toLowerCase(), record);
-                    cachedPages.set(String(page.title || '').toLowerCase(), page);
+                    const key = String(page.title || '').toLowerCase();
+                    pageByTitle.set(key, page);
+                    wikipediaCache.set(key, { at: Date.now(), page });
+                }
+                // MediaWiki can normalize spelling or follow redirects; map each requested title to its final page.
+                const aliases = new Map();
+                for (const item of [...(data?.query?.normalized || []), ...(data?.query?.redirects || [])]) {
+                    aliases.set(String(item.from || '').toLowerCase(), String(item.to || '').toLowerCase());
+                }
+                for (const requestedTitle of missingTitles) {
+                    let key = requestedTitle.toLowerCase();
+                    const visited = new Set();
+                    while (aliases.has(key) && !visited.has(key)) {
+                        visited.add(key);
+                        key = aliases.get(key);
+                    }
+                    const page = pageByTitle.get(key) || [...pageByTitle.values()].find(p => String(p.title || '').toLowerCase() === key);
+                    if (page) {
+                        cachedPages.set(requestedTitle.toLowerCase(), page);
+                        wikipediaCache.set(requestedTitle.toLowerCase(), { at: Date.now(), page });
+                    }
                 }
                 console.log(`   [wiki] Batch parsed ${pages.filter(p => p.extract).length}/${missingTitles.length} page extracts`);
             }
