@@ -65,6 +65,22 @@ async function runTests() {
         }
         console.log(`       Confidence: ${result.confidencePercent}% | Sources: ${result.sources.length}`);
         console.log(`       Why: ${result.why.slice(0, 140)}...\n`);
+
+        // Print actionable diagnostics only when a test fails.
+        // This distinguishes a Gemini UNVERIFIED answer from a verdict downgraded by the citation safety net.
+        if (!passed) {
+            console.error(`       Warning: ${result.warning || "None"}`);
+            console.error(`       Full explanation: ${result.why}`);
+            console.error(`       Evidence ledger: ${JSON.stringify(result.evidenceLedger || {})}`);
+            console.error(`       Search queries: ${JSON.stringify(result.debug?.searchQueries || result.searchQueries || [])}`);
+            console.error("       Sources and stances:");
+            for (const source of (result.sources || [])) {
+                console.error(`         - [${source.stance}] ${source.name}: ${source.title}`);
+                console.error(`           ${source.evidenceSummary || source.evidence || ""}`);
+                console.error(`           ${source.url || ""}`);
+            }
+            console.error("");
+        }
     }
 
     console.log("=================================================================");
