@@ -29,7 +29,8 @@
     <!-- Login protection (Firebase Auth + guest session) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="js/auth.js?v=3.1"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="js/auth.js?v=3.2"></script>
 </head>
 <body>
     <a class="visually-hidden-focusable skip-link" href="#main-content">Skip to main content</a>
@@ -182,7 +183,7 @@
                             <ul class="mb-0 ps-3">
                                 <li>Results are AI-assisted. For important decisions, open the linked sources and read them yourself.</li>
                                 <li>Very recent events may not be reported yet, which gives a <em>Can't verify</em> result rather than a guess.</li>
-                                <li>Checks are saved only in this browser (My Checks). Images you upload are sent to Google's AI to be analysed and are not stored on our server.</li>
+                                <li>Signed-in users' check history syncs to their private account. Guest history stays in this browser. Uploaded image files and thumbnails are not saved to cloud history.</li>
                                 <li>For images, "no signs found" never proves a picture is real, and "AI-generated" never proves the story is false.</li>
                             </ul>
                         </div>
@@ -219,7 +220,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
     <script src="js/util.js?v=2.0"></script>
-    <script src="js/data.js?v=3.0"></script>
+    <script src="js/data.js?v=4.0"></script>
+    <script src="js/cloud-history.js?v=1.0"></script>
     <script src="js/poster.js?v=2.1"></script>
     <script src="js/imagemeta.js?v=1.0"></script>
     <script src="js/verification.js?v=4.0"></script>
