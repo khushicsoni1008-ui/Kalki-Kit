@@ -353,8 +353,8 @@ async function fetchWikipedia(titles, relevanceText) {
 async function gatherEvidence(plan, claim) {
     const newsQueries = plan.newsQueries.length ? plan.newsQueries : [contentTokens(claim).slice(0, 7).join(' ')];
     const lowerClaim = `${claim} ${plan.coreClaim || ''}`.toLowerCase();
-    const hasHumanDinosaurCoexistence = /\\b(humans?|homo sapiens|people)\\b/.test(lowerClaim) &&
-        /\\b(dinosaurs?|non-avian)\\b/.test(lowerClaim);
+    const hasHumanDinosaurCoexistence = /\b(humans?|homo sapiens|people)\b/.test(lowerClaim) &&
+        /\b(dinosaurs?|non-avian)\b/.test(lowerClaim);
 
     // LLM search plans can miss the two timelines needed to assess a coexistence claim.
     // Add focused reference pages without hard-coding the verdict.
